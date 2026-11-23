@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>পেমেন্ট ও উত্তোলন প্যানেল (Supabase)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { 
+            font-family: 'Hind Siliguri', sans-serif; 
+            font-weight: 700;
+            background-color: #070b14;
+            color: #e2e8f0;
+        }
+        /* নিয়ন টেক্সট ও গ্লো ইফেক্ট */
+        .neon-emerald {
+            color: #34d399;
+            text-shadow: 0 0 8px rgba(52, 211, 153, 0.75), 0 0 18px rgba(16, 185, 129, 0.45);
+        }
+        .neon-amber {
+            color: #fbbf24;
+            text-shadow: 0 0 8px rgba(251, 191, 36, 0.75), 0 0 18px rgba(245, 158, 11, 0.45);
+        }
+        .neon-cyan {
+            color: #22d3ee;
+            text-shadow: 0 0 8px rgba(34, 211, 238, 0.75), 0 0 18px rgba(6, 182, 212, 0.45);
+        }
+        .neon-pink {
+            color: #ff2a85;
+            text-shadow: 0 0 8px rgba(255, 42, 133, 0.8), 0 0 18px rgba(226, 19, 110, 0.5);
+        }
+        .neon-orange {
+            color: #ff9f1c;
+            text-shadow: 0 0 8px rgba(255, 159, 28, 0.8), 0 0 18px rgba(246, 146, 30, 0.5);
+        }
+        .neon-purple {
+            color: #d946ef;
+            text-shadow: 0 0 8px rgba(217, 70, 239, 0.8), 0 0 18px rgba(140, 52, 148, 0.5);
+        }
+        .neon-red {
+            color: #f87171;
+            text-shadow: 0 0 8px rgba(248, 113, 113, 0.75);
+        }
+        .neon-white {
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.55);
+        }
+        .neon-card {
+            background-color: #0f172a;
+            border: 1px solid rgba(52, 211, 153, 0.25);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.6), inset 0 0 15px rgba(52, 211, 153, 0.04);
+        }
+        .neon-input {
+            background-color: #1e293b !important;
+            color: #ffffff !important;
+            border-color: #334155 !important;
+            font-weight: 700 !important;
+        }
+        .neon-input:focus {
+            border-color: #34d399 !important;
+            box-shadow: 0 0 12px rgba(52, 211, 153, 0.4) !important;
+        }
+    </style>
+</head>
+<body class="bg-[#070b14] text-slate-100 min-h-screen flex flex-col font-bold">
+
+    <!-- টপ নেভিগেশন বার -->
+    <nav class="bg-[#0b1120] text-white shadow-lg border-b border-emerald-500/30 sticky top-0 z-40">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center gap-2.5">
+                <div class="bg-emerald-500/20 border border-emerald-400 text-emerald-400 p-2.5 rounded-xl font-extrabold text-lg shadow-[0_0_15px_rgba(52,211,153,0.4)]">
+                    <i class="fas fa-coins neon-emerald"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-extrabold text-xl leading-tight neon-emerald tracking-wide">পেমেন্ট ওয়ালেট</h1>
+                        <span id="dbStatusBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300">ডেমো মোড</span>
+                    </div>
+                    <p class="text-xs font-bold text-cyan-300 neon-cyan">bKash • Nagad • Rocket</p>
+                </div>
+            </div>
+
+            <!-- প্যানেল পরিবর্তন বাটন -->
+            <div class="flex items-center gap-2 bg-slate-900 p-1.5 rounded-xl border border-slate-700">
+                <button type="button" id="btnUserView" onclick="switchView('user')" class="px-4 py-2 rounded-lg text-sm font-extrabold transition-all bg-emerald-500 text-slate-950 shadow-[0_0_15px_rgba(52,211,153,0.6)] cursor-pointer">
+                    <i class="fas fa-user mr-1"></i> ইউজার প্যানেল
+                </button>
+                <button type="button" id="btnAdminView" onclick="switchView('admin')" class="px-4 py-2 rounded-lg text-sm font-extrabold transition-all text-slate-300 hover:text-white relative cursor-pointer">
+                    <i class="fas fa-user-shield mr-1 text-amber-400"></i> অ্যাডমিন প্যানেল
+                    <span id="pendingBadge" class="ml-1.5 bg-red-500 text-white text-xs font-extrabold px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.8)]">0</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- মেসেজ / নোটিফিকেশন বক্স -->
+    <div id="toastBox" class="fixed bottom-5 right-5 z-50 hidden transform transition-all duration-300">
+        <div id="toastContent" class="px-5 py-3.5 rounded-xl shadow-2xl text-white font-extrabold flex items-center gap-3 text-sm"></div>
+    </div>
+
+    <!-- মূল কন্টেইনার -->
+    <main class="max-w-5xl mx-auto w-full px-4 py-6 flex-grow">
+
+        <!-- ==================== ১. ইউজার প্যানেল (USER PANEL) ==================== -->
+        <div id="userSection" class="space-y-6">
+            
+            <!-- ব্যালেন্স কার্ড -->
+            <div class="bg-gradient-to-r from-[#064e3b] via-[#0f172a] to-[#115e59] border border-emerald-400/50 rounded-2xl p-6 text-white shadow-[0_0_25px_rgba(16,185,129,0.25)] flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>
+                    <p class="text-emerald-300 text-sm font-extrabold uppercase tracking-wider">আপনার বর্তমান ব্যালেন্স</p>
+                    <h2 class="text-4xl sm:text-5xl font-extrabold mt-1 neon-emerald">৳ <span id="userBalanceDisplay">0.00</span></h2>
+                </div>
+                <div class="flex gap-3 w-full sm:w-auto">
+                    <button type="button" onclick="switchUserTab('deposit')" id="tabDepositBtn" class="flex-1 sm:flex-none bg-emerald-500 text-slate-950 font-extrabold px-5 py-2.5 rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.6)] hover:bg-emerald-400 transition cursor-pointer">
+                        <i class="fas fa-plus-circle mr-1"></i> টাকা অ্যাড করুন
+                    </button>
+                    <button type="button" onclick="switchUserTab('withdraw')" id="tabWithdrawBtn" class="flex-1 sm:flex-none bg-slate-900/90 text-amber-300 border border-amber-400/50 font-extrabold px-5 py-2.5 rounded-xl hover:bg-slate-800 transition cursor-pointer">
+                        <i class="fas fa-money-bill-wave mr-1"></i> উত্তোলন করুন
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- বাম পাশ: ফর্ম -->
+                <div class="lg:col-span-7 neon-card rounded-2xl p-6">
+                    
+                    <!-- টাকা অ্যাড (DEPOSIT) ফর্ম -->
+                    <div id="depositFormContainer">
+                        <h3 class="text-xl font-extrabold neon-emerald mb-4 border-b border-slate-700 pb-3">
+                            <i class="fas fa-paper-plane mr-2"></i>সেন্ড মানি করে টাকা অ্যাড করুন
+                        </h3>
+
+                        <!-- পেমেন্ট মেথড সিলেক্ট -->
+                        <label class="block text-sm font-extrabold text-cyan-300 neon-cyan mb-2">১. পেমেন্ট মাধ্যম বেছে নিন:</label>
+                        <div class="grid grid-cols-3 gap-3 mb-5">
+                            <button type="button" onclick="selectMethod('bkash')" id="method-bkash" class="method-btn border-2 border-[#ff2a85] bg-[#ff2a85]/15 rounded-xl p-3 text-center transition cursor-pointer">
+                                <div class="font-extrabold neon-pink text-lg">বিকাশ</div>
+                                <div class="text-xs font-bold text-slate-300">bKash Personal</div>
+                            </button>
+                            <button type="button" onclick="selectMethod('nagad')" id="method-nagad" class="method-btn border-2 border-slate-700 bg-slate-900/60 hover:border-[#ff9f1c] rounded-xl p-3 text-center transition cursor-pointer">
+                                <div class="font-extrabold neon-orange text-lg">নগদ</div>
+                                <div class="text-xs font-bold text-slate-300">Nagad Personal</div>
+                            </button>
+                            <button type="button" onclick="selectMethod('rocket')" id="method-rocket" class="method-btn border-2 border-slate-700 bg-slate-900/60 hover:border-[#d946ef] rounded-xl p-3 text-center transition cursor-pointer">
+                                <div class="font-extrabold neon-purple text-lg">রকেট</div>
+                                <div class="text-xs font-bold text-slate-300">Rocket Personal</div>
+                            </button>
+                        </div>
+
+                        <!-- অ্যাডমিন নম্বর বক্স -->
+                        <div id="adminNumberBox" class="bg-pink-950/40 border border-pink-500/50 rounded-xl p-4 mb-5 flex justify-between items-center shadow-[0_0_15px_rgba(236,72,153,0.15)]">
+                            <div>
+                                <p class="text-xs font-extrabold text-slate-200">এই <span id="selectedMethodName" class="font-extrabold neon-pink">বিকাশ</span> নম্বরে <b class="neon-white">Send Money</b> করুন:</p>
+                                <p id="displayAdminNumber" class="text-2xl font-extrabold neon-white tracking-wider mt-0.5">01711000000</p>
+                            </div>
+                            <button type="button" onclick="copyAdminNumber()" class="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-2 rounded-xl text-sm font-extrabold shadow-[0_0_12px_rgba(52,211,153,0.5)] transition cursor-pointer">
+                                <i class="fas fa-copy mr-1"></i> কপি
+                            </button>
+                        </div>
+
+                        <!-- ট্রানজেকশন সাবমিট ফর্ম -->
+                        <form id="depositForm" onsubmit="submitDeposit(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-extrabold text-slate-200 mb-1">টাকার পরিমাণ (BDT)</label>
+                                <input type="number" id="depAmount" required min="10" placeholder="যেমন: 500" class="w-full px-4 py-2.5 border rounded-xl outline-none font-extrabold text-lg neon-input">
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-extrabold text-slate-200 mb-1">আপনার সেন্ডার নম্বর</label>
+                                    <input type="tel" id="depSenderNumber" required placeholder="017XXXXXXXX" class="w-full px-4 py-2.5 border rounded-xl outline-none font-extrabold neon-input">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-extrabold text-slate-200 mb-1">Transaction ID (TrxID)</label>
+                                    <input type="text" id="depTrxId" required placeholder="যেমন: 9K8L7M6N5P" class="w-full px-4 py-2.5 border rounded-xl outline-none uppercase font-mono font-extrabold neon-input">
+                                </div>
+                            </div>
+                            <button type="submit" id="btnSubmitDep" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold py-3 rounded-xl shadow-[0_0_18px_rgba(52,211,153,0.5)] transition text-base cursor-pointer">
+                                <i class="fas fa-check-circle mr-1"></i> পেমেন্ট সাবমিট করুন
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- টাকা উত্তোলন (WITHDRAW) ফর্ম -->
+                    <div id="withdrawFormContainer" class="hidden">
+                        <h3 class="text-xl font-extrabold neon-amber mb-4 border-b border-slate-700 pb-3">
+                            <i class="fas fa-hand-holding-usd mr-2"></i>টাকা উত্তোলন (Withdraw)
+                        </h3>
+                        <form id="withdrawForm" onsubmit="submitWithdraw(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-extrabold text-slate-200 mb-1">উত্তোলনের মাধ্যম</label>
+                                <select id="withMethod" class="w-full px-4 py-2.5 border rounded-xl outline-none font-extrabold neon-input">
+                                    <option value="bkash">বিকাশ (bKash)</option>
+                                    <option value="nagad">নগদ (Nagad)</option>
+                                    <option value="rocket">রকেট (Rocket)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-extrabold text-slate-200 mb-1">টাকার পরিমাণ (সর্বনিম্ন ১০০৳)</label>
+                                <input type="number" id="withAmount" required min="100" placeholder="যেমন: 500" class="w-full px-4 py-2.5 border rounded-xl outline-none font-extrabold text-lg neon-input">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-extrabold text-slate-200 mb-1">আপনার ব্যক্তিগত নম্বর</label>
+                                <input type="tel" id="withReceiverNumber" required placeholder="017XXXXXXXX" class="w-full px-4 py-2.5 border rounded-xl outline-none font-extrabold neon-input">
+                            </div>
+                            <button type="submit" id="btnSubmitWith" class="w-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold py-3 rounded-xl shadow-[0_0_18px_rgba(251,191,36,0.5)] transition text-base cursor-pointer">
+                                <i class="fas fa-paper-plane mr-1"></i> উত্তোলন রিকোয়েস্ট পাঠান
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ডান পাশ: ইউজারের লেনদেন হিস্ট্রি -->
+                <div class="lg:col-span-5 neon-card rounded-2xl p-6 flex flex-col">
+                    <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
+                        <h3 class="text-lg font-extrabold neon-cyan">
+                            <i class="fas fa-history mr-2"></i>সাম্প্রতিক লেনদেন
+                        </h3>
+                        <button type="button" onclick="loadFromSupabase()" class="text-xs text-emerald-400 hover:text-emerald-300 cursor-pointer" title="রিফ্রেশ করুন">
+                            <i class="fas fa-sync-alt"></i> রিফ্রেশ
+                        </button>
+                    </div>
+                    <div id="userHistoryList" class="space-y-3 overflow-y-auto max-h-[430px] pr-1"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== ২. অ্যাডমিন প্যানেল (ADMIN PANEL) ==================== -->
+        <div id="adminSection" class="hidden space-y-6">
+            
+            <!-- অ্যাডমিন স্ট্যাটাস কার্ড -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div class="neon-card p-4 rounded-2xl">
+                    <p class="text-xs text-slate-300 font-extrabold">অপেক্ষমাণ (Pending)</p>
+                    <h4 id="statPending" class="text-3xl font-extrabold neon-amber mt-1">0</h4>
+                </div>
+                <div class="neon-card p-4 rounded-2xl">
+                    <p class="text-xs text-slate-300 font-extrabold">মোট সাকসেস অ্যাড</p>
+                    <h4 id="statApprovedDep" class="text-3xl font-extrabold neon-emerald mt-1">৳ 0</h4>
+                </div>
+                <div class="neon-card p-4 rounded-2xl">
+                    <p class="text-xs text-slate-300 font-extrabold">মোট উত্তোলন পেইড</p>
+                    <h4 id="statApprovedWith" class="text-3xl font-extrabold neon-cyan mt-1">৳ 0</h4>
+                </div>
+                <div class="neon-card p-4 rounded-2xl">
+                    <p class="text-xs text-slate-300 font-extrabold">মোট লেনদেন সংখ্যা</p>
+                    <h4 id="statTotalTx" class="text-3xl font-extrabold neon-white mt-1">0</h4>
+                </div>
+            </div>
+
+            <!-- অ্যাডমিন পেমেন্ট নম্বর সেটিংস -->
+            <div class="neon-card rounded-2xl p-6">
+                <h3 class="text-lg font-extrabold neon-cyan mb-4 flex items-center gap-2">
+                    <i class="fas fa-cog"></i> আপনার পেমেন্ট নম্বর পরিবর্তন করুন
+                </h3>
+                <form onsubmit="saveAdminNumbers(event)" class="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end">
+                    <div>
+                        <label class="block text-xs font-extrabold neon-pink mb-1">বিকাশ (bKash)</label>
+                        <input type="text" id="settingBkash" class="w-full px-3 py-2 border rounded-xl text-sm font-extrabold neon-input">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-extrabold neon-orange mb-1">নগদ (Nagad)</label>
+                        <input type="text" id="settingNagad" class="w-full px-3 py-2 border rounded-xl text-sm font-extrabold neon-input">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-extrabold neon-purple mb-1">রকেট (Rocket)</label>
+                        <input type="text" id="settingRocket" class="w-full px-3 py-2 border rounded-xl text-sm font-extrabold neon-input">
+                    </div>
+                    <button type="submit" class="bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-extrabold py-2.5 px-4 rounded-xl text-sm shadow-[0_0_15px_rgba(34,211,238,0.5)] transition cursor-pointer">
+                        <i class="fas fa-save mr-1"></i> নম্বর সেভ করুন
+                    </button>
+                </form>
+            </div>
+
+            <!-- ট্রানজেকশন যাচাই ও Approve তালিকা -->
+            <div class="neon-card rounded-2xl p-6">
+                <div class="flex flex-wrap justify-between items-center gap-3 mb-5 border-b border-slate-700 pb-4">
+                    <div>
+                        <h3 class="text-lg font-extrabold neon-emerald">লেনদেন যাচাই ও এপ্রুভাল (Verification)</h3>
+                        <p class="text-xs font-bold text-slate-300">TrxID মিলিয়ে নোটিশ লিখে সাকসেস বা বাতিল বাটনে ক্লিক করুন।</p>
+                    </div>
+                    <button type="button" onclick="loadFromSupabase()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/40 px-3 py-1.5 rounded-xl text-xs font-extrabold cursor-pointer">
+                        <i class="fas fa-sync-alt mr-1"></i> ডাটা রিফ্রেশ করুন
+                    </button>
+                </div>
+
+                <div id="adminTransactionList" class="space-y-3"></div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // =========================================================================
+        // ১. এখানে আপনার SUPABASE URL এবং ANON KEY বসান
+        // =========================================================================
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+        let supabaseClient = null;
+        const isSupabaseConfigured = SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
+
+        if (isSupabaseConfigured && window.supabase) {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        // অ্যাপ্লিকেশন স্টেট
+        const state = {
+            balance: 0,
+            selectedMethod: 'bkash',
+            adminNumbers: {
+                bkash: '01711000000',
+                nagad: '01811000000',
+                rocket: '019110000001'
+            },
+            transactions: [
+                {
+                    id: 'TX-101',
+                    type: 'deposit',
+                    method: 'bkash',
+                    number: '01712345678',
+                    trx_id: '9K8L7M6N5P',
+                    amount: 500,
+                    status: 'pending',
+                    note: '',
+                    created_at: new Date().toISOString()
+                }
+            ]
+        };
+
+        // টোস্ট মেসেজ ফাংশন
+        function showToast(msg, type = 'success') {
+            const box = document.getElementById('toastBox');
+            const content = document.getElementById('toastContent');
+            content.className = `px-5 py-3.5 rounded-xl shadow-2xl text-white font-semibold flex items-center gap-2 text-sm ${type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`;
+            content.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i> <span>${msg}</span>`;
+            box.classList.remove('hidden');
+            setTimeout(() => box.classList.add('hidden'), 3000);
+        }
+
+        // =========================================================================
+        // ২. SUPABASE ডাটাবেস থেকে ডাটা লোড ও রিয়েল-টাইম সিঙ্ক
+        // =========================================================================
+        async function loadFromSupabase() {
+            const badge = document.getElementById('dbStatusBadge');
+            if (!supabaseClient) {
+                badge.textContent = 'ডেমো মোড (Supabase কী যুক্ত করুন)';
+                renderAll();
+                return;
+            }
+
+            try {
+                // ১. সেটিংস ও ব্যালেন্স লোড
+                const { data: settingsData, error: setErr } = await supabaseClient
+                    .from('wallet_settings')
+                    .select('*')
+                    .eq('id', 1)
+                    .single();
+
+                if (settingsData) {
+                    state.balance = Number(settingsData.balance) || 0;
+                    state.adminNumbers.bkash = settingsData.bkash || '01711000000';
+                    state.adminNumbers.nagad = settingsData.nagad || '01811000000';
+                    state.adminNumbers.rocket = settingsData.rocket || '019110000001';
+                    selectMethod(state.selectedMethod);
+                }
+
+                // ২. ট্রানজেকশন তালিকা লোড
+                const { data: txData, error: txErr } = await supabaseClient
+                    .from('wallet_transactions')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (txData) {
+                    state.transactions = txData;
+                }
+
+                badge.textContent = 'Supabase লাইভ';
+                badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300';
+                renderAll();
+            } catch (err) {
+                console.error('Supabase Load Error:', err);
+                badge.textContent = 'কানেকশন এরর';
+                badge.className = 'text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 border border-red-400 text-red-300';
+            }
+        }
+
+        // রিয়েল-টাইম সাবস্ক্রিপশন (অন্য ফোন থেকে আপডেট হলে সাথে সাথে দেখাবে)
+        function setupRealtime() {
+            if (!supabaseClient) return;
+            supabaseClient
+                .channel('wallet-changes')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_transactions' }, () => {
+                    loadFromSupabase();
+                })
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'wallet_settings' }, () => {
+                    loadFromSupabase();
+                })
+                .subscribe();
+        }
+
+        // ইউজার ও অ্যাডমিন প্যানেল সুইচ
+        function switchView(view) {
+            const userSec = document.getElementById('userSection');
+            const adminSec = document.getElementById('adminSection');
+            const btnUser = document.getElementById('btnUserView');
+            const btnAdmin = document.getElementById('btnAdminView');
+
+            if (view === 'user') {
+                userSec.classList.remove('hidden');
+                adminSec.classList.add('hidden');
+                btnUser.className = 'px-4 py-2 rounded-lg text-sm font-extrabold transition-all bg-emerald-500 text-slate-950 shadow-[0_0_15px_rgba(52,211,153,0.6)] cursor-pointer';
+                btnAdmin.className = 'px-4 py-2 rounded-lg text-sm font-extrabold transition-all text-slate-300 hover:text-white relative cursor-pointer';
+            } else {
+                userSec.classList.add('hidden');
+                adminSec.classList.remove('hidden');
+                btnAdmin.className = 'px-4 py-2 rounded-lg text-sm font-extrabold transition-all bg-amber-400 text-slate-950 shadow-[0_0_15px_rgba(251,191,36,0.6)] relative cursor-pointer';
+                btnUser.className = 'px-4 py-2 rounded-lg text-sm font-extrabold transition-all text-slate-300 hover:text-white cursor-pointer';
+                
+                document.getElementById('settingBkash').value = state.adminNumbers.bkash;
+                document.getElementById('settingNagad').value = state.adminNumbers.nagad;
+                document.getElementById('settingRocket').value = state.adminNumbers.rocket;
+            }
+            renderAll();
+        }
+
+        // ডিপোজিট ও উইথড্র ট্যাব সুইচ
+        function switchUserTab(tab) {
+            const depForm = document.getElementById('depositFormContainer');
+            const withForm = document.getElementById('withdrawFormContainer');
+            const tabDep = document.getElementById('tabDepositBtn');
+            const tabWith = document.getElementById('tabWithdrawBtn');
+
+            if (tab === 'deposit') {
+                depForm.classList.remove('hidden');
+                withForm.classList.add('hidden');
+                tabDep.className = 'flex-1 sm:flex-none bg-emerald-500 text-slate-950 font-extrabold px-5 py-2.5 rounded-xl shadow-[0_0_15px_rgba(52,211,153,0.6)] hover:bg-emerald-400 transition cursor-pointer';
+                tabWith.className = 'flex-1 sm:flex-none bg-slate-900/90 text-amber-300 border border-amber-400/50 font-extrabold px-5 py-2.5 rounded-xl hover:bg-slate-800 transition cursor-pointer';
+            } else {
+                depForm.classList.add('hidden');
+                withForm.classList.remove('hidden');
+                tabWith.className = 'flex-1 sm:flex-none bg-amber-400 text-slate-950 font-extrabold px-5 py-2.5 rounded-xl shadow-[0_0_15px_rgba(251,191,36,0.6)] hover:bg-amber-300 transition cursor-pointer';
+                tabDep.className = 'flex-1 sm:flex-none bg-slate-900/90 text-emerald-300 border border-emerald-400/50 font-extrabold px-5 py-2.5 rounded-xl hover:bg-slate-800 transition cursor-pointer';
+            }
+        }
+
+        // পেমেন্ট মেথড সিলেক্ট (bKash / Nagad / Rocket)
+        function selectMethod(method) {
+            state.selectedMethod = method;
+            const configs = {
+                bkash: { name: 'বিকাশ', color: '#ff2a85', neonClass: 'neon-pink', boxBg: 'bg-pink-950/40 border-pink-500/50' },
+                nagad: { name: 'নগদ', color: '#ff9f1c', neonClass: 'neon-orange', boxBg: 'bg-orange-950/40 border-orange-500/50' },
+                rocket: { name: 'রকেট', color: '#d946ef', neonClass: 'neon-purple', boxBg: 'bg-purple-950/40 border-purple-500/50' }
+            };
+
+            ['bkash', 'nagad', 'rocket'].forEach(m => {
+                const btn = document.getElementById(`method-${m}`);
+                if (m === method) {
+                    btn.style.borderColor = configs[m].color;
+                    btn.style.backgroundColor = configs[m].color + '25';
+                    btn.style.boxShadow = `0 0 15px ${configs[m].color}55`;
+                } else {
+                    btn.style.borderColor = '#334155';
+                    btn.style.backgroundColor = 'rgba(15, 23, 42, 0.7)';
+                    btn.style.boxShadow = 'none';
+                }
+            });
+
+            const numBox = document.getElementById('adminNumberBox');
+            numBox.className = `${configs[method].boxBg} border rounded-xl p-4 mb-5 flex justify-between items-center`;
+            
+            const nameEl = document.getElementById('selectedMethodName');
+            nameEl.textContent = configs[method].name;
+            nameEl.className = `font-extrabold ${configs[method].neonClass}`;
+
+            document.getElementById('displayAdminNumber').textContent = state.adminNumbers[method];
+        }
+
+        // নম্বর কপি করা
+        function copyAdminNumber() {
+            const num = document.getElementById('displayAdminNumber').textContent;
+            const tempInput = document.createElement('input');
+            tempInput.value = num;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast(`নম্বর কপি হয়েছে: ${num}`, 'success');
+        }
+
+        // ডিপোজিট সাবমিট (Supabase + Demo)
+        async function submitDeposit(e) {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('depAmount').value);
+            const sender = document.getElementById('depSenderNumber').value.trim();
+            const trxId = document.getElementById('depTrxId').value.trim().toUpperCase();
+
+            if (!amount || amount < 10) return showToast('সঠিক পরিমাণ লিখুন', 'error');
+
+            const newTx = {
+                id: 'TX-' + Date.now(),
+                type: 'deposit',
+                method: state.selectedMethod,
+                number: sender,
+                trx_id: trxId,
+                amount: amount,
+                status: 'pending',
+                note: ''
+            };
+
+            if (supabaseClient) {
+                const btn = document.getElementById('btnSubmitDep');
+                btn.disabled = true;
+                const { error } = await supabaseClient.from('wallet_transactions').insert([newTx]);
+                btn.disabled = false;
+                if (error) return showToast('ডাটাবেস এরর: ' + error.message, 'error');
+                await loadFromSupabase();
+            } else {
+                newTx.created_at = new Date().toISOString();
+                state.transactions.unshift(newTx);
+                renderAll();
+            }
+
+            document.getElementById('depositForm').reset();
+            showToast('পেমেন্ট রিকোয়েস্ট জমা হয়েছে! অ্যাডমিন যাচাইয়ের পর ব্যালেন্স যোগ হবে।', 'success');
+        }
+
+        // উত্তোলন সাবমিট (Supabase + Demo)
+        async function submitWithdraw(e) {
+            e.preventDefault();
+            const method = document.getElementById('withMethod').value;
+            const amount = parseFloat(document.getElementById('withAmount').value);
+            const receiver = document.getElementById('withReceiverNumber').value.trim();
+
+            if (amount > state.balance) {
+                return showToast('আপনার অ্যাকাউন্টে পর্যাপ্ত ব্যালেন্স নেই!', 'error');
+            }
+
+            const newBalance = state.balance - amount;
+            const newTx = {
+                id: 'TX-' + Date.now(),
+                type: 'withdraw',
+                method: method,
+                number: receiver,
+                trx_id: 'WITHDRAW',
+                amount: amount,
+                status: 'pending',
+                note: ''
+            };
+
+            if (supabaseClient) {
+                const btn = document.getElementById('btnSubmitWith');
+                btn.disabled = true;
+                const { error: txErr } = await supabaseClient.from('wallet_transactions').insert([newTx]);
+                const { error: balErr } = await supabaseClient.from('wallet_settings').update({ balance: newBalance }).eq('id', 1);
+                btn.disabled = false;
+                if (txErr || balErr) return showToast('উত্তোলন রিকোয়েস্ট ব্যর্থ হয়েছে!', 'error');
+                await loadFromSupabase();
+            } else {
+                state.balance = newBalance;
+                newTx.created_at = new Date().toISOString();
+                state.transactions.unshift(newTx);
+                renderAll();
+            }
+
+            document.getElementById('withdrawForm').reset();
+            showToast('উত্তোলন রিকোয়েস্ট পাঠানো হয়েছে!', 'success');
+        }
+
+        // অ্যাডমিন APPROVE / REJECT ফাংশন (Supabase + Demo)
+        async function handleAction(txId, action) {
+            const tx = state.transactions.find(item => item.id === txId);
+            if (!tx || tx.status !== 'pending') return;
+
+            const noteInput = document.getElementById(`note-${txId}`);
+            const customNote = noteInput ? noteInput.value.trim() : '';
+
+            let updatedStatus = action === 'success' ? 'success' : 'rejected';
+            let updatedNote = '';
+            let newBalance = state.balance;
+
+            if (action === 'success') {
+                updatedNote = customNote || 'পেমেন্ট সফলভাবে যাচাই ও সম্পন্ন হয়েছে।';
+                if (tx.type === 'deposit') {
+                    newBalance += Number(tx.amount);
+                }
+            } else {
+                updatedNote = customNote || 'তথ্য বা ট্রানজেকশন আইডি সঠিক নয়।';
+                if (tx.type === 'withdraw') {
+                    newBalance += Number(tx.amount);
+                }
+            }
+
+            if (supabaseClient) {
+                const { error: txErr } = await supabaseClient
+                    .from('wallet_transactions')
+                    .update({ status: updatedStatus, note: updatedNote })
+                    .eq('id', txId);
+
+                const { error: balErr } = await supabaseClient
+                    .from('wallet_settings')
+                    .update({ balance: newBalance })
+                    .eq('id', 1);
+
+                if (txErr || balErr) return showToast('আপডেট করতে সমস্যা হয়েছে!', 'error');
+                await loadFromSupabase();
+            } else {
+                tx.status = updatedStatus;
+                tx.note = updatedNote;
+                state.balance = newBalance;
+                renderAll();
+            }
+
+            if (action === 'success') {
+                showToast(tx.type === 'deposit' ? `সাকসেস! ৳${tx.amount} ব্যালেন্সে যোগ হয়েছে।` : `৳${tx.amount} উত্তোলন সাকসেস হয়েছে।`, 'success');
+            } else {
+                showToast('লেনদেনটি বাতিল করা হয়েছে।', 'error');
+            }
+        }
+
+        // অ্যাডমিন নম্বর সেভ করা (Supabase + Demo)
+        async function saveAdminNumbers(e) {
+            e.preventDefault();
+            const bkash = document.getElementById('settingBkash').value.trim();
+            const nagad = document.getElementById('settingNagad').value.trim();
+            const rocket = document.getElementById('settingRocket').value.trim();
+
+            if (supabaseClient) {
+                const { error } = await supabaseClient
+                    .from('wallet_settings')
+                    .update({ bkash, nagad, rocket })
+                    .eq('id', 1);
+
+                if (error) return showToast('নম্বর সেভ হয়নি: ' + error.message, 'error');
+                await loadFromSupabase();
+            } else {
+                state.adminNumbers = { bkash, nagad, rocket };
+                selectMethod(state.selectedMethod);
+            }
+            showToast('নতুন পেমেন্ট নম্বরগুলো সেভ হয়েছে!', 'success');
+        }
+
+        // সময় ফরম্যাট করা
+        function formatTime(isoStr) {
+            if (!isoStr) return 'এইমাত্র';
+            try {
+                return new Date(isoStr).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' });
+            } catch {
+                return 'আজ';
+            }
+        }
+
+        // সব UI আপডেট (Render)
+        function renderAll() {
+            document.getElementById('userBalanceDisplay').textContent = Number(state.balance).toFixed(2);
+
+            const pendingList = state.transactions.filter(t => t.status === 'pending');
+            const badge = document.getElementById('pendingBadge');
+            badge.textContent = pendingList.length;
+            badge.style.display = pendingList.length > 0 ? 'inline-block' : 'none';
+
+            // অ্যাডমিন স্ট্যাটাস আপডেট
+            document.getElementById('statPending').textContent = pendingList.length;
+            document.getElementById('statApprovedDep').textContent = '৳ ' + state.transactions
+                .filter(t => t.type === 'deposit' && t.status === 'success')
+                .reduce((sum, t) => sum + Number(t.amount), 0);
+            document.getElementById('statApprovedWith').textContent = '৳ ' + state.transactions
+                .filter(t => t.type === 'withdraw' && t.status === 'success')
+                .reduce((sum, t) => sum + Number(t.amount), 0);
+            document.getElementById('statTotalTx').textContent = state.transactions.length;
+
+            // ইউজার হিস্ট্রি রেন্ডার
+            const userList = document.getElementById('userHistoryList');
+            userList.innerHTML = state.transactions.map(tx => {
+                const isDep = tx.type === 'deposit';
+                const trxCode = tx.trx_id || tx.trxId || '';
+                const statusBadge = tx.status === 'pending' 
+                    ? '<span class="bg-amber-500/20 border border-amber-400/50 neon-amber px-2.5 py-0.5 rounded-md text-xs font-extrabold">যাচাই চলছে</span>'
+                    : tx.status === 'success' 
+                    ? '<span class="bg-emerald-500/20 border border-emerald-400/50 neon-emerald px-2.5 py-0.5 rounded-md text-xs font-extrabold">সাকসেস</span>'
+                    : '<span class="bg-red-500/20 border border-red-400/50 neon-red px-2.5 py-0.5 rounded-md text-xs font-extrabold">বাতিল</span>';
+
+                return `
+                    <div class="p-3.5 rounded-xl border border-slate-700 bg-slate-900/90 flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="font-extrabold text-sm neon-white">${isDep ? 'টাকা অ্যাড' : 'উত্তোলন'} (${tx.method.toUpperCase()})</span>
+                                </div>
+                                <p class="text-xs font-bold text-slate-300 mt-0.5">নম্বর: <span class="neon-cyan">${tx.number}</span> ${isDep ? `| TrxID: <b class="neon-amber">${trxCode}</b>` : ''}</p>
+                            </div>
+                            <div class="text-right">
+                                <div class="font-extrabold text-lg ${isDep ? 'neon-emerald' : 'neon-amber'}">${isDep ? '+' : '-'}৳${tx.amount}</div>
+                                <div class="mt-1">${statusBadge}</div>
+                            </div>
+                        </div>
+                        ${tx.note ? `
+                            <div class="text-xs font-bold px-3 py-2 rounded-lg ${tx.status === 'success' ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-500/40' : 'bg-red-950/60 text-red-300 border border-red-500/40'}">
+                                <i class="fas fa-comment-alt mr-1"></i> <b class="neon-white">অ্যাডমিন নোটিশ:</b> ${tx.note}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            // অ্যাডমিন লিস্ট রেন্ডার
+            const adminList = document.getElementById('adminTransactionList');
+            adminList.innerHTML = state.transactions.map(tx => {
+                const isDep = tx.type === 'deposit';
+                const trxCode = tx.trx_id || tx.trxId || '';
+                return `
+                    <div class="p-4 rounded-xl border ${tx.status === 'pending' ? 'border-amber-400/60 bg-amber-950/20 shadow-[0_0_15px_rgba(251,191,36,0.1)]' : 'border-slate-700 bg-slate-900/80'} flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                        <div class="space-y-1.5 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="px-2.5 py-0.5 rounded-md text-xs font-extrabold uppercase ${isDep ? 'bg-emerald-500/20 border border-emerald-400/50 neon-emerald' : 'bg-cyan-500/20 border border-cyan-400/50 neon-cyan'}">
+                                    ${isDep ? 'Deposit (টাকা অ্যাড)' : 'Withdraw (উত্তোলন)'}
+                                </span>
+                                <span class="font-extrabold neon-white uppercase text-sm">${tx.method}</span>
+                                <span class="text-xs font-bold text-slate-400">• ${formatTime(tx.created_at)}</span>
+                            </div>
+                            <div class="text-sm font-bold text-slate-200">
+                                নম্বর: <b class="font-mono neon-cyan">${tx.number}</b> 
+                                ${isDep ? `| TrxID: <span class="bg-slate-800 border border-amber-400/40 px-2.5 py-0.5 rounded font-mono font-extrabold neon-amber select-all">${trxCode}</span>` : ''}
+                            </div>
+                            <div class="text-xl font-extrabold neon-white">পরিমাণ: <span class="neon-emerald">৳ ${tx.amount}</span></div>
+                            ${tx.note ? `
+                                <div class="text-xs font-bold text-cyan-200 bg-slate-800 border border-slate-600 px-3 py-1.5 rounded-lg inline-block mt-1">
+                                    <i class="fas fa-comment-dots text-cyan-400 mr-1"></i> <b class="neon-white">দেওয়া নোটিশ:</b> ${tx.note}
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <div class="w-full lg:w-auto flex flex-col gap-2 min-w-[260px]">
+                            ${tx.status === 'pending' ? `
+                                <input type="text" id="note-${tx.id}" placeholder="ইউজারের জন্য নোটিশ লিখুন (ঐচ্ছিক)..." class="w-full px-3 py-2 text-xs border rounded-xl outline-none neon-input">
+                                <div class="flex items-center gap-2">
+                                    <button type="button" onclick="handleAction('${tx.id}', 'success')" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold px-3 py-2 rounded-xl shadow-[0_0_12px_rgba(52,211,153,0.5)] cursor-pointer transition flex items-center justify-center gap-1 text-sm">
+                                        <i class="fas fa-check-circle"></i> সাকসেস
+                                    </button>
+                                    <button type="button" onclick="handleAction('${tx.id}', 'rejected')" class="flex-1 bg-red-500 hover:bg-red-400 text-white font-extrabold px-3 py-2 rounded-xl shadow-[0_0_12px_rgba(239,68,68,0.5)] cursor-pointer transition flex items-center justify-center gap-1 text-sm">
+                                        <i class="fas fa-times-circle"></i> বাতিল
+                                    </button>
+                                </div>
+                            ` : tx.status === 'success' ? `
+                                <span class="bg-emerald-500/20 border border-emerald-400/50 neon-emerald font-extrabold px-4 py-2 rounded-xl text-sm text-center">
+                                    <i class="fas fa-check-double mr-1"></i> সাকসেস হয়েছে
+                                </span>
+                            ` : `
+                                <span class="bg-red-500/20 border border-red-400/50 neon-red font-extrabold px-4 py-2 rounded-xl text-sm text-center">
+                                    <i class="fas fa-ban mr-1"></i> বাতিলকৃত
+                                </span>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // পেজ লোড হলে ইনিশিয়ালাইজ
+        window.onload = async function() {
+            selectMethod('bkash');
+            await loadFromSupabase();
+            setupRealtime();
+        };
+    </script>
+</body>
+</html>
+   
